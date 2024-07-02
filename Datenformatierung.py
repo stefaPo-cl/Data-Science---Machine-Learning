@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from prophet import Prophet
 
 # Funktion zum Entfernen von nicht numerischen Zeichen
 def remove_non_numeric(s):
@@ -67,17 +68,80 @@ for key in range(0, 59, 1):
 	# Debug print
 	#print(df_data_dict[geo_name])
 
-print(df_data_dict)
+#print(df_data_dict)
 
 #####################################################################
 # The Data is now in the dictionary df_data_dict separated to the countries
 #####################################################################
 
 # Plot the data
-for country in df_data_dict['GEO'].values:
-	plt.plot(df_data_dict['Timeline'], df_data_dict[country], label=country)
-plt.title('Birthrate in Europe')
+#for country in df_data_dict['GEO'].values:
+#	plt.plot(df_data_dict['Timeline'], df_data_dict[country], label=country)
+#plt.title('Birthrate in Europe')
+#plt.xlabel('Year')
+#plt.ylabel('Birthrate')
+#plt.legend()
+#plt.show()
+
+
+#countries_to_plot = ['DE', 'IT', 'AT', 'CH', 'FR', 'GB']
+
+#for country in countries_to_plot:
+#    if country in df_data_dict:
+#        plt.plot(df_data_dict['Timeline'], df_data_dict[country], label=country)
+
+#plt.title('Birthrate in European Countries from 1960 to 2022')
+#plt.xlabel('Year')
+#plt.ylabel('Birthrate')
+#plt.legend()
+#plt.savefig('Birthrate.png')
+#plt.show()
+
+########################################################################
+# Birthrates for different countries stored in usable variables
+########################################################################
+
+df_total_births_DE = df_data_dict['DE']
+df_total_births_AT = df_data_dict['AT']
+df_total_births_IT = df_data_dict['IT']
+
+df_Years = df_data_dict['Timeline']
+
+total_deaths_AT = np.loadtxt('annual_deaths_total.csv', delimiter=',', unpack=True, skiprows=117, max_rows=62, usecols=(7))
+
+df_total_deaths_AT = pd.DataFrame(total_deaths_AT)
+
+population_AT = np.loadtxt('population_january_first.csv', delimiter = ',', unpack=True, skiprows=115, max_rows=62, usecols=(8))
+
+df_population_AT = pd.DataFrame(population_AT)
+
+df_data = pd.merge(df_Years, df_population_AT, df_total_births_AT, df_total_deaths_AT)
+
+# Calculate birth and death rates per 1000 people
+
+
+df_data['birth_rate'] = (df_data['df_total_births_AT'] / df_data['df_population']) * 1000
+df_data['death_rate'] = (df_data['df_total_deaths_AT'] / df_data['df_population']) * 1000
+
+
+# Population projection
+
+df_data['predicted_population'] = df_data['df_population_AT']
+
+for i in range(1,len(df_data)):
+	df.loc[i, 'predicted_population'] = df.loc[i-1, 'predicted_population'] + (df.loc[i-1, 'Birth_Rate_AT'] - df.loc[i-1, 'Death_Rate_AT'])
+
+
+plt.figure(figsize=(10, 6))
+plt.plot(df_data['df_Years'], df_data['predicted_population'], marker='o', label='Predicted Population')
 plt.xlabel('Year')
-plt.ylabel('Birthrate')
+plt.ylabel('Population')
+plt.title('Population Projection')
 plt.legend()
+plt.grid(True)
 plt.show()
+
+
+
+
+
