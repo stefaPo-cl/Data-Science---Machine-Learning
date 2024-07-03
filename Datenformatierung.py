@@ -101,46 +101,104 @@ for key in range(0, 59, 1):
 # Birthrates for different countries stored in usable variables
 ########################################################################
 
-df_total_births_DE = df_data_dict['DE']
-df_total_births_AT = df_data_dict['AT']
-df_total_births_IT = df_data_dict['IT']
+#df_total_births_DE = df_data_dict['DE']
+#df_total_births_AT = df_data_dict['AT']
+#df_total_births_IT = df_data_dict['IT']
 
-df_Years = df_data_dict['Timeline']
+#df_Years = df_data_dict['Timeline']
 
-total_deaths_AT = np.loadtxt('annual_deaths_total.csv', delimiter=',', unpack=True, skiprows=117, max_rows=62, usecols=(7))
 
-df_total_deaths_AT = pd.DataFrame(total_deaths_AT)
+#df_total_deaths = pd.read_csv('annual_deaths_total.csv', delimiter=',', names=['Country', 'Year', 'Total_Deaths'], usecols=(5,6,7))
 
-population_AT = np.loadtxt('population_january_first.csv', delimiter = ',', unpack=True, skiprows=115, max_rows=62, usecols=(8))
+#total_deaths_AT = np.loadtxt('annual_deaths_total.csv', delimiter=',', unpack=True, skiprows=117, max_rows=62, usecols=(7))
 
-df_population_AT = pd.DataFrame(population_AT)
+#df_population = pd.read_csv('population_january_first.csv', delimiter=',', names=['Country', 'Year', 'Total_Deaths'], usecols=(6,7,8))
 
-df_data = pd.merge(df_Years, df_population_AT, df_total_births_AT, df_total_deaths_AT)
+#population_AT = np.loadtxt('population_january_first.csv', delimiter = ',', unpack=True, skiprows=115, max_rows=62, usecols=(8))
+
+#df_population_AT = df_population[df_population['Country'] == 'AT']
+
+#df_total_deaths_AT = df_total_deaths[df_total_deaths['Country'] == 'AT']
+
+#print(df_total_deaths_AT)
+#print(df_population_AT)
+
+
+
+# Read the CSV files into DataFrames
+deaths_df = pd.read_csv('annual_deaths_total.csv', header=None, names=['country', 'year', 'deaths'], usecols=[5,6,7])
+population_df = pd.read_csv('population_january_first.csv', header=None, names=['country', 'year', 'population'], usecols=[6,7,8])
+
+
+# Assuming df_data_dict is the dictionary obtained from the cleaned birth data
+# Extract the timeline
+timeline = df_data_dict['Timeline']
+
+# Initialize a list to store the merged data for all countries
+austria_deaths = deaths_df[deaths_df['country'] == 'AT'][['year', 'deaths']]
+austria_population = population_df[population_df['country'] == 'AT'][['year', 'population']]
+
+# Extract Austria's birth data
+if 'AT' in df_data_dict:
+    austria_births = df_data_dict['AT']
+else:
+    # If birth data is missing for Austria, create a list of NaNs
+    austria_births = [None] * len(timeline)
+
+# Create a DataFrame for the birth data
+austria_births_df = pd.DataFrame({
+    'births': austria_births
+})
+
+
+
+# Merge the data for Austria
+AT_deaths_pop_merged = pd.merge(austria_deaths, austria_population, on='year', how='outer')
+austria_merged = AT_deaths_pop_merged.join(austria_births_df)
+austria_merged['country'] = 'AT'
+
+#print(AT_deaths_pop_merged)
+#print(austria_births)
+#print(austria_births_df)
+#print(austria_merged)
+
+# Handle missing values
+austria_merged = austria_merged.dropna()  # Or use .fillna() to replace missing values
+
+# Display the cleaned and merged DataFrame for Austria
+#print(austria_merged.head())
+
+# Save the merged DataFrame for Austria to a CSV file (optional)
+austria_merged.to_csv('austria_merged_data.csv', index=False)
+#print(df_data_AT)
+
+#df_data = pd.merge(df_Years, df_population_AT, df_total_births_AT, df_total_deaths_AT)
 
 # Calculate birth and death rates per 1000 people
 
+df_data_AT = pd.read_csv('austria_merged_data.csv', header=None, names=['year', 'deaths', 'population', 'births', 'country'], skiprows=1)
 
-df_data['birth_rate'] = (df_data['df_total_births_AT'] / df_data['df_population']) * 1000
-df_data['death_rate'] = (df_data['df_total_deaths_AT'] / df_data['df_population']) * 1000
+#print(df_data_AT)
 
+df_data_AT['birth_rate'] = (df_data_AT['births'] / df_data_AT['population']) * 1000
+df_data_AT['death_rate'] = (df_data_AT['deaths'] / df_data_AT['population']) * 1000
 
-# Population projection
+# Initialize columns for predictions
+df_data_AT['predicted_population'] = df_data_AT['population']
+for i in range(1, len(df_data_AT)):
+    df_data_AT.loc[i, 'predicted_population'] = df_data_AT.loc[i-1, 'predicted_population'] + (df_data_AT.loc[i-1, 'births'] - df_data_AT.loc[i-1, 'deaths'])
 
-df_data['predicted_population'] = df_data['df_population_AT']
-
-for i in range(1,len(df_data)):
-	df.loc[i, 'predicted_population'] = df.loc[i-1, 'predicted_population'] + (df.loc[i-1, 'Birth_Rate_AT'] - df.loc[i-1, 'Death_Rate_AT'])
-
+#print(df_data_AT.head())
 
 plt.figure(figsize=(10, 6))
-plt.plot(df_data['df_Years'], df_data['predicted_population'], marker='o', label='Predicted Population')
+plt.plot(df_data_AT['year'], df_data_AT['population'], marker='o', label='Actual Population')
+plt.plot(df_data_AT['year'], df_data_AT['predicted_population'], marker='o', label='Predicted Population')
 plt.xlabel('Year')
 plt.ylabel('Population')
 plt.title('Population Projection')
 plt.legend()
 plt.grid(True)
 plt.show()
-
 
 
 
