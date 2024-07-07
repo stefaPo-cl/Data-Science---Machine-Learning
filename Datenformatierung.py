@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
+from pygam import PoissonGAM, s, te, l
 #from prophet import Prophet
 
 ###########################################################################################################################################
@@ -236,26 +237,26 @@ country_merged.to_csv('Merged_Data/' + Country + '_merged_data.csv', index=False
 # Data analysis for the country specified
 ##########################################
 
-# Plot for the population
-plt.plot(country_merged['year'].astype(int), country_merged['population'].astype(int), marker='o', label='Population')
-plt.xlabel('Year')
-plt.ylabel('Different Data')
-plt.title('Different Data for ' + Country)
-plt.grid(True)
-plt.legend()
-plt.show()
-
-# Plot for the birthrate, deathrate and imigration
-plt.plot(country_merged['year'].astype(int), country_merged['births'].astype(int), marker='o', label='Births')
-plt.plot(country_merged['year'].astype(int), country_merged['deaths'].astype(int), marker='o', label='Deaths')
-plt.plot(country_merged['year'].astype(int), country_merged['imigrants'].astype(int), marker='o', label='Imigrants')
-plt.plot(country_merged['year'].astype(int), country_merged['emigrants'].astype(int), marker='o', label='Emigrants')
-plt.xlabel('Year')
-plt.ylabel('Different Data')
-plt.title('Different Data for ' + Country)
-plt.grid(True)
-plt.legend()
-plt.show()
+## Plot for the population
+#plt.plot(country_merged['year'].astype(int), country_merged['population'].astype(int), marker='o', label='Population')
+#plt.xlabel('Year')
+#plt.ylabel('Different Data')
+#plt.title('Different Data for ' + Country)
+#plt.grid(True)
+#plt.legend()
+#plt.show()
+#
+## Plot for the birthrate, deathrate and imigration
+#plt.plot(country_merged['year'].astype(int), country_merged['births'].astype(int), marker='o', label='Births')
+#plt.plot(country_merged['year'].astype(int), country_merged['deaths'].astype(int), marker='o', label='Deaths')
+#plt.plot(country_merged['year'].astype(int), country_merged['imigrants'].astype(int), marker='o', label='Imigrants')
+#plt.plot(country_merged['year'].astype(int), country_merged['emigrants'].astype(int), marker='o', label='Emigrants')
+#plt.xlabel('Year')
+#plt.ylabel('Different Data')
+#plt.title('Different Data for ' + Country)
+#plt.grid(True)
+#plt.legend()
+#plt.show()
 
 ##################################################
 # Linear Regression for Prediction in the past
@@ -284,15 +285,15 @@ for header in ds_header:
 		years_past_poly = poly.fit_transform(years_past)
 		predictions_past = model.predict(years_past_poly)
 
-		# Plot die Vorhersage in die Vergangenheit
-		plt.plot(years_past, predictions_past, label='Predictions Past ' + header)
-		plt.plot(X, y, label='Actual Data ' + header)
-		plt.xlabel('Year')
-		plt.ylabel('Different Data')
-		plt.title('Different Data for ' + Country)
-		plt.grid(True)
-		plt.legend()
-		plt.show()
+		## Plot die Vorhersage in die Vergangenheit
+		#plt.plot(years_past, predictions_past, label='Predictions Past ' + header)
+		#plt.plot(X, y, label='Actual Data ' + header)
+		#plt.xlabel('Year')
+		#plt.ylabel('Different Data')
+		#plt.title('Different Data for ' + Country)
+		#plt.grid(True)
+		#plt.legend()
+		#plt.show()
 	else:
 		print('Dataset ' + header + ' is complete')
 
@@ -310,26 +311,85 @@ country_merged['deathrate'] = (country_merged['deaths'].astype(int) / country_me
 country_merged['imigrationrate'] = (country_merged['imigrants'].astype(int) / country_merged['population'].astype(int)) * 1000
 country_merged['emigrationrate'] = (country_merged['emigrants'].astype(int) / country_merged['population'].astype(int)) * 1000
 
+# DataFrame for the coefficients
+coefficients = pd.DataFrame({
+	'birthrate' : [],
+	'deathrate' : [],
+	'imigrationrate' : [],
+	'emigrationrate' : []
+})
 
-# Debug print
-print(country_merged)
-
-# Save everything
-country_merged.to_csv('Merged_Data/' + Country + '_merged_data.csv', index=False)
-
+# In the calculation into the future deaths and emigrants are negative, thereofore we have to change the sign
 country_merged = country_merged.astype(float)
 
-# Build a population model
+# Define emigrants and deaths as negative
+country_merged['emigrants'] = -country_merged['emigrants']
+country_merged['deaths'] = -country_merged['deaths']
+
+country_merged = country_merged.astype(str)
+
+
+# Save everything in a csv-file
+country_merged.to_csv('Merged_Data/' + Country + '_merged_data.csv', index=False)
+
+
+# Alter the type of the data so that we can calculate with it
+country_merged = country_merged.astype(float)
+
+# Calculate the coefficients
+coefficients['birthrate'] = country_merged['birthrate'].mean()
+coefficients['deathrate'] = country_merged['deathrate'].mean()
+coefficients['imigrationrate'] = country_merged['imigrationrate'].mean()
+coefficients['emigrationrate'] = country_merged['emigrationrate'].mean()
+
+
+# Build a population prediction database
 country_merged['predicted_population'] = country_merged['population']
 
+# Calculate the population for the future with the previous data
 for i in range(36, len(country_merged)):
-    country_merged.loc[i, 'predicted_population'] = country_merged.loc[i-1, 'predicted_population'] + (country_merged.loc[i-1, 'births'] - country_merged.loc[i-1, 'deaths'] + country_merged.loc[i-1, 'imigrants'] - country_merged.loc[i-1, 'emigrants'])
+    country_merged.loc[i, 'predicted_population'] = country_merged.loc[i-1, 'predicted_population'] + (country_merged.loc[i-1, 'births'] + country_merged.loc[i-1, 'deaths'] + country_merged.loc[i-1, 'imigrants'] + country_merged.loc[i-1, 'emigrants'])
 
+# Debug print
 #print(df_data_AT.head())
 
+## Plot the built population prediction
+#plt.figure(figsize=(10, 6))
+#plt.plot(country_merged['year'], country_merged['population'], marker='o', label='Actual Population')
+#plt.plot(country_merged['year'], country_merged['predicted_population'], marker='o', label='Predicted Population')
+#plt.xlabel('Year')
+#plt.ylabel('Population')
+#plt.title('Population Projection')
+#plt.legend()
+#plt.grid(True)
+#plt.show()
+
+# Generate a future prediction timeline
+country_merged['year'] = country_merged['year'].astype(int)
+
+country_merged['Future_year'] = country_merged['year']
+
+for i in range(0, len(country_merged['year'])):
+	country_merged.loc[i, 'Future_year'] = country_merged.loc[i, 'year'] + len(country_merged['year']) - 1
+
+
+# Calculate the future population
+country_merged['Future'] = None 
+
+country_merged.loc[0, 'Future'] = country_merged.loc[62, 'predicted_population']
+
+print(country_merged)
+
+for i in range(1, len(country_merged)):
+    country_merged.loc[i, 'Future'] = country_merged.loc[i-1, 'Future'] + (country_merged.loc[i-1, 'births'] + country_merged.loc[i-1, 'deaths'] + country_merged.loc[i-1, 'imigrants'] + country_merged.loc[i-1, 'emigrants'])
+
+
+print(country_merged)
+
+# Plot the built population prediction
 plt.figure(figsize=(10, 6))
 plt.plot(country_merged['year'], country_merged['population'], marker='o', label='Actual Population')
-plt.plot(country_merged['year'], country_merged['predicted_population'], marker='o', label='Predicted Population')
+plt.plot(country_merged['Future_year'], country_merged['Future'], marker='o', label='Predicted Population')
 plt.xlabel('Year')
 plt.ylabel('Population')
 plt.title('Population Projection')
@@ -337,79 +397,25 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-
-#####################################################################
-# The Data is now in the dictionary df_data_dict separated to the countries
-#####################################################################
-
-# Plot the data
-#for country in df_data_dict['GEO'].values:
-#	plt.plot(df_data_dict['Timeline'], df_data_dict[country], label=country)
-#plt.title('Birthrate in Europe')
+## Look into the future with a GAM model
+#X = country_merged[country_merged['year'] >= 1996][['year', 'deaths', 'births', 'imigrants', 'emigrants']]
+#y = country_merged[country_merged['year'] >= 1996]['population'].to_numpy()
+#
+#gam = PoissonGAM(s(0) + te(1, 2)).fit(X, y)
+#
+#lam = np.logspace(-3, 3, 10)
+#gam.gridsearch(X, y, lam=lam)
+#
+## Predict future values
+#years_future = np.arange(2023, 2033).reshape(-1, 1)
+#X_future = np.hstack([years_future, np.tile(X.mean(axis=0)[1:], (len(years_future), 1))])  # Assume mean of other features for future
+#y_pred_future = gam.predict(X_future)
+#
+#plt.plot(country_merged[country_merged['year'] >= 1996]['year'], y, 'o', label='Actual Population')
+#plt.plot(X_future[:, 0], y_pred_future, 'x', label='Predicted Population', linestyle='dashed')
 #plt.xlabel('Year')
-#plt.ylabel('Birthrate')
+#plt.ylabel('Population')
+#plt.title('Population Projection with Poisson GAM')
 #plt.legend()
+#plt.grid(True)
 #plt.show()
-
-
-#countries_to_plot = ['DE', 'IT', 'AT', 'CH', 'FR', 'GB']
-
-#for country in countries_to_plot:
-#    if country in df_data_dict:
-#        plt.plot(df_data_dict['Timeline'], df_data_dict[country], label=country)
-
-#plt.title('Birthrate in European Countries from 1960 to 2022')
-#plt.xlabel('Year')
-#plt.ylabel('Birthrate')
-#plt.legend()
-#plt.savefig('Birthrate.png')
-#plt.show()
-
-########################################################################
-# Birthrates for different countries stored in usable variables
-########################################################################
-
-#df_total_births_DE = df_data_dict['DE']
-#df_total_births_AT = df_data_dict['AT']
-#df_total_births_IT = df_data_dict['IT']
-
-#df_Years = df_data_dict['Timeline']
-
-
-#df_total_deaths = pd.read_csv('annual_deaths_total.csv', delimiter=',', names=['Country', 'Year', 'Total_Deaths'], usecols=(5,6,7))
-
-#total_deaths_AT = np.loadtxt('annual_deaths_total.csv', delimiter=',', unpack=True, skiprows=117, max_rows=62, usecols=(7))
-
-#df_population = pd.read_csv('population_january_first.csv', delimiter=',', names=['Country', 'Year', 'Total_Deaths'], usecols=(6,7,8))
-
-#population_AT = np.loadtxt('population_january_first.csv', delimiter = ',', unpack=True, skiprows=115, max_rows=62, usecols=(8))
-
-#df_population_AT = df_population[df_population['Country'] == 'AT']
-
-#df_total_deaths_AT = df_total_deaths[df_total_deaths['Country'] == 'AT']
-
-#print(df_total_deaths_AT)
-#print(df_population_AT)
-
-#df_data = pd.merge(df_Years, df_population_AT, df_total_births_AT, df_total_deaths_AT)
-
-# Calculate birth and death rates per 1000 people
-
-df_data_AT = pd.read_csv('Merged_Data' + Country + '_merged_data.csv', header=None, names=['year', 'deaths', 'population', 'births', 'country'], skiprows=1)
-
-# Initialize columns for predictions
-df_data_AT['predicted_population'] = df_data_AT['population']
-for i in range(1, len(df_data_AT)):
-    df_data_AT.loc[i, 'predicted_population'] = df_data_AT.loc[i-1, 'predicted_population'] + (df_data_AT.loc[i-1, 'births'] - df_data_AT.loc[i-1, 'deaths'])
-
-#print(df_data_AT.head())
-
-plt.figure(figsize=(10, 6))
-plt.plot(df_data_AT['year'], df_data_AT['population'], marker='o', label='Actual Population')
-plt.plot(df_data_AT['year'], df_data_AT['predicted_population'], marker='o', label='Predicted Population')
-plt.xlabel('Year')
-plt.ylabel('Population')
-plt.title('Population Projection')
-plt.legend()
-plt.grid(True)
-plt.show()
